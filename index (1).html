@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Align & Apply — Job Tracker + Manifestation Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50: '#f0f9ff', 100: '#e0f2fe', 200: '#bae6fd', 300: '#7dd3fc', 400: '#38bdf8', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1', 800: '#075985', 900: '#0c4a6e' },
+            accent: { 50: '#fdf4ff', 100: '#fae8ff', 200: '#f5d0fe', 300: '#f0abfc', 400: '#e879f9', 500: '#d946ef', 600: '#c026d3', 700: '#a21caf', 800: '#86198f', 900: '#701a75' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .kanban-column { min-height: 420px; }
+    .job-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .job-card:hover { transform: translateY(-2px); }
+    .job-card.dragging { opacity: 0.5; }
+    .fade-in { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .toggle-checkbox:checked { right: 0; border-color: #c026d3; }
+    .toggle-checkbox:checked + .toggle-label { background-color: #c026d3; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <!-- Top Nav -->
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16 items-center">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-bold text-lg">A</div>
+          <div>
+            <h1 class="text-lg font-bold text-slate-900">Align & Apply</h1>
+            <p class="text-xs text-slate-500 -mt-0.5">Job Tracker + Manifestation</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+          <button onclick="showView('dashboard')" id="nav-dashboard" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition">Dashboard</button>
+          <button onclick="showView('jobs')" id="nav-jobs" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition">Jobs</button>
+          <button onclick="showView('manifest')" id="nav-manifest" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition">Manifest</button>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-slate-500 hidden sm:inline">Demo Mode</span>
+          <div class="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-semibold">U</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- ==================== DASHBOARD ==================== -->
+    <section id="view-dashboard" class="space-y-6 fade-in">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">Good afternoon 👋</h2>
+          <p class="text-slate-500 mt-1">You're aligned. Keep applying with intention.</p>
+        </div>
+        <button onclick="showView('jobs'); openAddJob()" class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Add Application
+        </button>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <p class="text-sm text-slate-500">Total Applications</p>
+          <p class="text-3xl font-bold text-slate-900 mt-1" id="stat-total">0</p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <p class="text-sm text-slate-500">In Progress</p>
+          <p class="text-3xl font-bold text-primary-600 mt-1" id="stat-progress">0</p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <p class="text-sm text-slate-500">Interviews</p>
+          <p class="text-3xl font-bold text-amber-500 mt-1" id="stat-interview">0</p>
+        </div>
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <p class="text-sm text-slate-500">Offers</p>
+          <p class="text-3xl font-bold text-emerald-500 mt-1" id="stat-offer">0</p>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-3 gap-6">
+        <!-- Upcoming Follow-ups -->
+        <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-900">Upcoming Follow-ups</h3>
+            <button onclick="showView('jobs')" class="text-sm text-primary-600 hover:text-primary-700 font-medium">View all</button>
+          </div>
+          <div id="followups-list" class="space-y-3"></div>
+        </div>
+
+        <!-- Today's Manifestation -->
+        <div class="bg-gradient-to-br from-accent-50 to-primary-50 rounded-2xl border border-accent-100 p-5">
+          <h3 class="font-semibold text-slate-900 mb-1">Today's Practice</h3>
+          <p class="text-sm text-slate-600 mb-3" id="dash-methods-summary">Your active methods</p>
+          
+          <div id="dash-practice-content" class="space-y-3">
+            <!-- filled by JS based on enabled methods -->
+          </div>
+
+          <button onclick="showView('manifest')" class="w-full mt-4 bg-accent-600 hover:bg-accent-700 text-white py-2.5 rounded-xl text-sm font-medium transition">
+            Go to Manifest Hub →
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== JOBS (KANBAN) ==================== -->
+    <section id="view-jobs" class="hidden space-y-5 fade-in">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">Job Pipeline</h2>
+          <p class="text-slate-500 mt-1">Drag cards between stages · Click to edit</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="openAddJob()" class="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Add Job
+          </button>
+        </div>
+      </div>
+
+      <div class="flex gap-4 overflow-x-auto pb-4" id="kanban-board"></div>
+    </section>
+
+    <!-- ==================== MANIFEST ==================== -->
+    <section id="view-manifest" class="hidden space-y-6 fade-in">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">Manifestation Hub</h2>
+          <p class="text-slate-500 mt-1">Choose the methods that resonate with you</p>
+        </div>
+      </div>
+
+      <!-- Method Selector -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-semibold text-slate-900">Your Methods</h3>
+            <p class="text-sm text-slate-500">Toggle the practices you want to use. Only enabled ones appear below.</p>
+          </div>
+        </div>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3" id="method-toggles">
+          <!-- filled by JS -->
+        </div>
+      </div>
+
+      <!-- Dynamic Method Sections -->
+      <div id="manifest-sections" class="grid lg:grid-cols-2 gap-6">
+        <!-- sections rendered by JS based on enabled methods -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Add / Edit Job Modal -->
+  <div id="job-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto fade-in">
+      <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+        <h3 class="text-lg font-semibold" id="modal-title">Add Job Application</h3>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form id="job-form" class="p-6 space-y-4" onsubmit="saveJob(event)">
+        <input type="hidden" id="job-id" />
+        <div class="grid grid-cols-2 gap-4">
+          <div class="col-span-2">
+            <label class="text-sm font-medium text-slate-700">Company *</label>
+            <input id="job-company" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="e.g. Stripe" />
+          </div>
+          <div class="col-span-2">
+            <label class="text-sm font-medium text-slate-700">Role / Title *</label>
+            <input id="job-role" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="e.g. Senior Frontend Engineer" />
+          </div>
+          <div>
+            <label class="text-sm font-medium text-slate-700">Status</label>
+            <select id="job-status" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+              <option value="saved">Saved</option>
+              <option value="applied">Applied</option>
+              <option value="interview">Interview</option>
+              <option value="offer">Offer</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-slate-700">Source</label>
+            <select id="job-source" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+              <option>LinkedIn</option>
+              <option>Company Site</option>
+              <option>Referral</option>
+              <option>Indeed</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-slate-700">Date Applied</label>
+            <input type="date" id="job-date" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          </div>
+          <div>
+            <label class="text-sm font-medium text-slate-700">Follow-up Date</label>
+            <input type="date" id="job-followup" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          </div>
+          <div class="col-span-2">
+            <label class="text-sm font-medium text-slate-700">Job Link</label>
+            <input id="job-link" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="https://..." />
+          </div>
+          <div class="col-span-2">
+            <label class="text-sm font-medium text-slate-700">Notes</label>
+            <textarea id="job-notes" rows="2" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Salary range, contacts, impressions..."></textarea>
+          </div>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal()" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium hover:bg-slate-50 transition">Cancel</button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ========== DATA ==========
+    const STAGES = [
+      { id: 'saved', label: 'Saved', color: 'bg-slate-100 text-slate-700' },
+      { id: 'applied', label: 'Applied', color: 'bg-blue-100 text-blue-700' },
+      { id: 'interview', label: 'Interview', color: 'bg-amber-100 text-amber-700' },
+      { id: 'offer', label: 'Offer', color: 'bg-emerald-100 text-emerald-700' },
+      { id: 'rejected', label: 'Rejected', color: 'bg-rose-100 text-rose-700' }
+    ];
+
+    const AVAILABLE_METHODS = [
+      { id: 'method369', name: '369 Method', desc: 'Write affirmation 3× morning, 6× afternoon, 9× night', icon: '✍️' },
+      { id: 'visualization', name: 'Visualization', desc: 'Guided timer to feel your goal as already real', icon: '👁️' },
+      { id: 'gratitude', name: 'Gratitude Journal', desc: 'Daily list of 3 things you’re grateful for', icon: '🙏' },
+      { id: 'affirmations', name: 'Daily Affirmations', desc: 'Short positive statements to reprogram mindset', icon: '💬' },
+      { id: 'scripting', name: 'Scripting', desc: 'Write your ideal day / offer letter as if it happened', icon: '📜' },
+      { id: 'tips', name: 'LoA Tips', desc: 'Quick Law of Attraction reminders', icon: '✨' }
+    ];
+
+    let jobs = JSON.parse(localStorage.getItem('align_jobs') || 'null') || [
+      { id: 1, company: 'Stripe', role: 'Senior Frontend Engineer', status: 'interview', source: 'LinkedIn', date: '2026-09-28', followup: '2026-10-12', link: '', notes: '2nd round next week. Great culture fit.' },
+      { id: 2, company: 'Notion', role: 'Product Designer', status: 'applied', source: 'Company Site', date: '2026-10-02', followup: '2026-10-14', link: '', notes: 'Used v3 resume' },
+      { id: 3, company: 'Figma', role: 'Design Systems Engineer', status: 'saved', source: 'Referral', date: '', followup: '2026-10-11', link: '', notes: 'Ask Alex for intro' },
+      { id: 4, company: 'Linear', role: 'Full Stack Engineer', status: 'applied', source: 'LinkedIn', date: '2026-10-05', followup: '2026-10-15', link: '', notes: '' },
+      { id: 5, company: 'Vercel', role: 'Developer Experience', status: 'offer', source: 'Referral', date: '2026-09-15', followup: '', link: '', notes: 'Offer received! Negotiating.' },
+      { id: 6, company: 'Airbnb', role: 'Frontend Engineer', status: 'rejected', source: 'LinkedIn', date: '2026-09-10', followup: '', link: '', notes: 'Ghosted after phone screen' }
+    ];
+
+    let manifest = JSON.parse(localStorage.getItem('align_manifest') || 'null') || {
+      affirmation: 'I am receiving exciting job offers that align with my values and skills.',
+      morning: 0,
+      afternoon: 0,
+      night: 0,
+      streak: 1,
+      day: 1,
+      gratitude: ['', '', ''],
+      scriptingText: '',
+      enabledMethods: {
+        method369: true,
+        visualization: true,
+        gratitude: true,
+        affirmations: true,
+        scripting: false,
+        tips: true
+      }
+    };
+
+    // Ensure enabledMethods exists (for older localStorage)
+    if (!manifest.enabledMethods) {
+      manifest.enabledMethods = {
+        method369: true,
+        visualization: true,
+        gratitude: true,
+        affirmations: true,
+        scripting: false,
+        tips: true
+      };
+    }
+    // Ensure affirmations is available even on older saved data
+    if (manifest.enabledMethods.affirmations === undefined) {
+      manifest.enabledMethods.affirmations = true;
+    }
+
+    // ========== NAVIGATION ==========
+    function showView(view) {
+      ['dashboard', 'jobs', 'manifest'].forEach(v => {
+        document.getElementById(`view-${v}`).classList.toggle('hidden', v !== view);
+        document.getElementById(`nav-${v}`).classList.toggle('bg-white', v === view);
+        document.getElementById(`nav-${v}`).classList.toggle('shadow-sm', v === view);
+        document.getElementById(`nav-${v}`).classList.toggle('text-slate-900', v === view);
+        document.getElementById(`nav-${v}`).classList.toggle('text-slate-500', v !== view);
+      });
+      if (view === 'dashboard') renderDashboard();
+      if (view === 'jobs') renderKanban();
+      if (view === 'manifest') renderManifest();
+    }
+
+    // ========== JOBS ==========
+    function saveJobs() {
+      localStorage.setItem('align_jobs', JSON.stringify(jobs));
+    }
+
+    function renderKanban() {
+      const board = document.getElementById('kanban-board');
+      board.innerHTML = STAGES.map(stage => {
+        const stageJobs = jobs.filter(j => j.status === stage.id);
+        return `
+          <div class="kanban-column flex-shrink-0 w-72 bg-slate-100/80 rounded-2xl p-3" data-stage="${stage.id}"
+               ondragover="event.preventDefault()" ondrop="dropJob(event, '${stage.id}')">
+            <div class="flex items-center justify-between mb-3 px-1">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-slate-700">${stage.label}</span>
+                <span class="text-xs bg-white text-slate-500 px-2 py-0.5 rounded-full">${stageJobs.length}</span>
+              </div>
+            </div>
+            <div class="space-y-2.5 min-h-[360px]" id="col-${stage.id}">
+              ${stageJobs.map(job => jobCard(job)).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function jobCard(job) {
+      return `
+        <div class="job-card bg-white rounded-xl p-3.5 border border-slate-200 shadow-sm cursor-grab active:cursor-grabbing"
+             draggable="true"
+             ondragstart="dragStart(event, ${job.id})"
+             onclick="editJob(${job.id})">
+          <div class="flex justify-between items-start gap-2">
+            <div>
+              <p class="font-semibold text-slate-900 text-sm leading-tight">${job.company}</p>
+              <p class="text-xs text-slate-500 mt-0.5">${job.role}</p>
+            </div>
+            <button onclick="event.stopPropagation(); deleteJob(${job.id})" class="text-slate-300 hover:text-rose-500 text-xs">✕</button>
+          </div>
+          <div class="flex flex-wrap gap-1.5 mt-3">
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">${job.source}</span>
+            ${job.date ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">${job.date}</span>` : ''}
+          </div>
+          ${job.notes ? `<p class="text-xs text-slate-500 mt-2 line-clamp-2">${job.notes}</p>` : ''}
+        </div>
+      `;
+    }
+
+    let draggedId = null;
+    function dragStart(e, id) {
+      draggedId = id;
+      e.target.classList.add('dragging');
+    }
+    function dropJob(e, status) {
+      e.preventDefault();
+      if (draggedId == null) return;
+      const job = jobs.find(j => j.id === draggedId);
+      if (job) {
+        job.status = status;
+        saveJobs();
+        renderKanban();
+        renderDashboard();
+      }
+      draggedId = null;
+    }
+
+    function openAddJob() {
+      document.getElementById('modal-title').textContent = 'Add Job Application';
+      document.getElementById('job-form').reset();
+      document.getElementById('job-id').value = '';
+      document.getElementById('job-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('job-modal').classList.remove('hidden');
+      document.getElementById('job-modal').classList.add('flex');
+    }
+
+    function editJob(id) {
+      const job = jobs.find(j => j.id === id);
+      if (!job) return;
+      document.getElementById('modal-title').textContent = 'Edit Job';
+      document.getElementById('job-id').value = job.id;
+      document.getElementById('job-company').value = job.company;
+      document.getElementById('job-role').value = job.role;
+      document.getElementById('job-status').value = job.status;
+      document.getElementById('job-source').value = job.source;
+      document.getElementById('job-date').value = job.date || '';
+      document.getElementById('job-followup').value = job.followup || '';
+      document.getElementById('job-link').value = job.link || '';
+      document.getElementById('job-notes').value = job.notes || '';
+      document.getElementById('job-modal').classList.remove('hidden');
+      document.getElementById('job-modal').classList.add('flex');
+    }
+
+    function closeModal() {
+      document.getElementById('job-modal').classList.add('hidden');
+      document.getElementById('job-modal').classList.remove('flex');
+    }
+
+    function saveJob(e) {
+      e.preventDefault();
+      const id = document.getElementById('job-id').value;
+      const data = {
+        company: document.getElementById('job-company').value.trim(),
+        role: document.getElementById('job-role').value.trim(),
+        status: document.getElementById('job-status').value,
+        source: document.getElementById('job-source').value,
+        date: document.getElementById('job-date').value,
+        followup: document.getElementById('job-followup').value,
+        link: document.getElementById('job-link').value.trim(),
+        notes: document.getElementById('job-notes').value.trim()
+      };
+      if (id) {
+        const idx = jobs.findIndex(j => j.id == id);
+        if (idx > -1) jobs[idx] = { ...jobs[idx], ...data };
+      } else {
+        jobs.push({ id: Date.now(), ...data });
+      }
+      saveJobs();
+      closeModal();
+      renderKanban();
+      renderDashboard();
+    }
+
+    function deleteJob(id) {
+      if (!confirm('Delete this application?')) return;
+      jobs = jobs.filter(j => j.id !== id);
+      saveJobs();
+      renderKanban();
+      renderDashboard();
+    }
+
+    // ========== DASHBOARD ==========
+    function renderDashboard() {
+      document.getElementById('stat-total').textContent = jobs.length;
+      document.getElementById('stat-progress').textContent = jobs.filter(j => ['applied', 'interview'].includes(j.status)).length;
+      document.getElementById('stat-interview').textContent = jobs.filter(j => j.status === 'interview').length;
+      document.getElementById('stat-offer').textContent = jobs.filter(j => j.status === 'offer').length;
+
+      const upcoming = jobs
+        .filter(j => j.followup)
+        .sort((a, b) => a.followup.localeCompare(b.followup))
+        .slice(0, 5);
+
+      const list = document.getElementById('followups-list');
+      if (upcoming.length === 0) {
+        list.innerHTML = `<p class="text-sm text-slate-400 py-4 text-center">No upcoming follow-ups</p>`;
+      } else {
+        list.innerHTML = upcoming.map(j => `
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition cursor-pointer" onclick="showView('jobs'); editJob(${j.id})">
+            <div>
+              <p class="text-sm font-medium text-slate-900">${j.company} · ${j.role}</p>
+              <p class="text-xs text-slate-500 mt-0.5">Follow up by ${j.followup}</p>
+            </div>
+            <span class="text-xs px-2 py-1 rounded-full ${STAGES.find(s => s.id === j.status)?.color || ''}">${STAGES.find(s => s.id === j.status)?.label}</span>
+          </div>
+        `).join('');
+      }
+
+      // Dashboard practice summary based on enabled methods
+      const enabled = Object.entries(manifest.enabledMethods).filter(([k, v]) => v).map(([k]) => k);
+      const names = enabled.map(id => AVAILABLE_METHODS.find(m => m.id === id)?.name).filter(Boolean);
+      document.getElementById('dash-methods-summary').textContent = names.length
+        ? names.slice(0, 3).join(' · ') + (names.length > 3 ? ` +${names.length - 3}` : '')
+        : 'No methods selected yet';
+
+      let practiceHtml = '';
+      if (manifest.enabledMethods.method369) {
+        practiceHtml += `
+          <div class="bg-white/70 backdrop-blur rounded-xl p-3">
+            <p class="text-xs text-slate-500 mb-1">369 Method · Day ${manifest.day}</p>
+            <div class="flex gap-2 text-center text-xs">
+              <div class="flex-1"><span class="font-bold">${manifest.morning}/3</span><br>Morning</div>
+              <div class="flex-1"><span class="font-bold">${manifest.afternoon}/6</span><br>Afternoon</div>
+              <div class="flex-1"><span class="font-bold">${manifest.night}/9</span><br>Night</div>
+            </div>
+          </div>`;
+      }
+      if (manifest.enabledMethods.gratitude) {
+        const filled = (manifest.gratitude || []).filter(g => g.trim()).length;
+        practiceHtml += `
+          <div class="bg-white/70 backdrop-blur rounded-xl p-3 text-sm">
+            <p class="text-xs text-slate-500">Gratitude</p>
+            <p class="font-medium">${filled}/3 entries today</p>
+          </div>`;
+      }
+      if (manifest.enabledMethods.visualization) {
+        practiceHtml += `
+          <div class="bg-white/70 backdrop-blur rounded-xl p-3 text-sm">
+            <p class="text-xs text-slate-500">Visualization</p>
+            <p class="font-medium">Ready when you are</p>
+          </div>`;
+      }
+      if (!practiceHtml) {
+        practiceHtml = `<p class="text-sm text-slate-500">Enable methods in the Manifest tab to see your daily practice here.</p>`;
+      }
+      document.getElementById('dash-practice-content').innerHTML = practiceHtml;
+    }
+
+    // ========== MANIFEST ==========
+    function saveManifest() {
+      localStorage.setItem('align_manifest', JSON.stringify(manifest));
+    }
+
+    function toggleMethod(id) {
+      manifest.enabledMethods[id] = !manifest.enabledMethods[id];
+      saveManifest();
+      renderManifest();
+      renderDashboard();
+    }
+
+    function renderMethodToggles() {
+      const container = document.getElementById('method-toggles');
+      container.innerHTML = AVAILABLE_METHODS.map(m => {
+        const on = !!manifest.enabledMethods[m.id];
+        return `
+          <button onclick="toggleMethod('${m.id}')"
+            class="flex items-start gap-3 p-3.5 rounded-xl border text-left transition ${on ? 'border-accent-300 bg-accent-50' : 'border-slate-200 bg-white hover:border-slate-300'}">
+            <span class="text-xl">${m.icon}</span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <p class="font-medium text-sm text-slate-900">${m.name}</p>
+                <div class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors ${on ? 'bg-accent-600' : 'bg-slate-200'}">
+                  <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${on ? 'translate-x-4' : 'translate-x-0'}"></span>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5 leading-snug">${m.desc}</p>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderManifestSections() {
+      const container = document.getElementById('manifest-sections');
+      let html = '';
+
+      // 369 Method
+      if (manifest.enabledMethods.method369) {
+        html += `
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div class="flex items-center gap-3 mb-5">
+              <div class="w-10 h-10 rounded-xl bg-accent-100 text-accent-600 flex items-center justify-center font-bold text-sm">369</div>
+              <div>
+                <h3 class="font-semibold text-slate-900">369 Method</h3>
+                <p class="text-sm text-slate-500">Write your affirmation 3 → 6 → 9 times daily</p>
+              </div>
+            </div>
+            <div class="mb-4">
+              <label class="text-sm font-medium text-slate-700">Your Affirmation</label>
+              <textarea id="affirmation-input" rows="2" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500" placeholder="I am receiving my dream job offer..."></textarea>
+              <button onclick="saveAffirmation()" class="mt-2 text-sm text-accent-600 hover:text-accent-700 font-medium">Save Affirmation</button>
+            </div>
+            <div class="space-y-3">
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div class="flex justify-between items-center mb-2">
+                  <span class="text-sm font-medium">☀️ Morning (3×)</span>
+                  <span class="text-sm text-slate-500" id="m-progress">0 / 3</span>
+                </div>
+                <div class="flex gap-2">
+                  <button onclick="tick369('morning')" class="flex-1 bg-white border border-slate-200 hover:border-accent-300 hover:bg-accent-50 py-2 rounded-lg text-sm font-medium">+1 Write</button>
+                  <button onclick="resetSession('morning')" class="px-3 py-2 text-slate-400 hover:text-slate-600 text-sm">Reset</button>
+                </div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div class="flex justify-between items-center mb-2">
+                  <span class="text-sm font-medium">🌤️ Afternoon (6×)</span>
+                  <span class="text-sm text-slate-500" id="a-progress">0 / 6</span>
+                </div>
+                <div class="flex gap-2">
+                  <button onclick="tick369('afternoon')" class="flex-1 bg-white border border-slate-200 hover:border-accent-300 hover:bg-accent-50 py-2 rounded-lg text-sm font-medium">+1 Write</button>
+                  <button onclick="resetSession('afternoon')" class="px-3 py-2 text-slate-400 hover:text-slate-600 text-sm">Reset</button>
+                </div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div class="flex justify-between items-center mb-2">
+                  <span class="text-sm font-medium">🌙 Night (9×)</span>
+                  <span class="text-sm text-slate-500" id="n-progress">0 / 9</span>
+                </div>
+                <div class="flex gap-2">
+                  <button onclick="tick369('night')" class="flex-1 bg-white border border-slate-200 hover:border-accent-300 hover:bg-accent-50 py-2 rounded-lg text-sm font-medium">+1 Write</button>
+                  <button onclick="resetSession('night')" class="px-3 py-2 text-slate-400 hover:text-slate-600 text-sm">Reset</button>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+              <div>
+                <p class="text-sm text-slate-500">Streak</p>
+                <p class="text-xl font-bold text-accent-600"><span id="streak">1</span> days</p>
+              </div>
+              <button onclick="completeDay()" class="bg-accent-600 hover:bg-accent-700 text-white px-4 py-2 rounded-xl text-sm font-medium">Mark Day Complete</button>
+            </div>
+          </div>`;
+      }
+
+      // Visualization
+      if (manifest.enabledMethods.visualization) {
+        const soundOptions = [
+          { id: 'none', label: 'None', icon: '🔇' },
+          { id: 'water', label: 'Water', icon: '💧' },
+          { id: 'fire', label: 'Fire', icon: '🔥' },
+          { id: 'air', label: 'Air', icon: '🌬️' },
+          { id: 'birds', label: 'Birds', icon: '🐦' },
+          { id: 'mindful', label: 'Mindful', icon: '🧘' }
+        ];
+        const currentSound = window.selectedSound || 'water';
+        html += `
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-xl bg-primary-100 text-primary-600 flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-slate-900">Visualization</h3>
+                <p class="text-sm text-slate-500">Feel it as if it's already yours</p>
+              </div>
+            </div>
+
+            <!-- Sound selector -->
+            <div class="mb-4">
+              <p class="text-xs font-medium text-slate-500 mb-2">Ambient sound</p>
+              <div class="flex flex-wrap gap-2" id="sound-selector">
+                ${soundOptions.map(s => `
+                  <button onclick="selectSound('${s.id}')" 
+                    class="sound-btn px-3 py-1.5 rounded-lg text-xs font-medium border transition ${currentSound === s.id ? 'bg-primary-100 border-primary-300 text-primary-800' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}"
+                    data-sound="${s.id}">
+                    ${s.icon} ${s.label}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="text-center py-4">
+              <div class="text-5xl font-bold text-primary-600 mb-2" id="timer-display">05:00</div>
+              <p class="text-sm text-slate-500 mb-4">Guided visualization timer</p>
+              <div class="flex justify-center gap-3">
+                <button onclick="startTimer(5)" class="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium">Start 5 min</button>
+                <button onclick="startTimer(10)" class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-5 py-2.5 rounded-xl text-sm font-medium">10 min</button>
+                <button onclick="stopTimer()" class="text-slate-400 hover:text-slate-600 px-3 py-2.5 text-sm">Stop</button>
+              </div>
+            </div>
+            <div class="bg-primary-50 rounded-xl p-4 text-sm text-slate-700 leading-relaxed">
+              <p class="font-medium text-primary-800 mb-1">Quick prompt:</p>
+              Close your eyes. Imagine receiving the offer email. Feel the excitement in your body. See yourself telling a friend the good news. Stay in that feeling for the full session.
+            </div>
+          </div>`;
+      }
+
+      // Gratitude Journal
+      if (manifest.enabledMethods.gratitude) {
+        html += `
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-lg">🙏</div>
+              <div>
+                <h3 class="font-semibold text-slate-900">Gratitude Journal</h3>
+                <p class="text-sm text-slate-500">Write 3 things you’re grateful for today</p>
+              </div>
+            </div>
+            <div class="space-y-3">
+              ${[0,1,2].map(i => `
+                <div>
+                  <label class="text-xs text-slate-500">#${i+1}</label>
+                  <input id="gratitude-${i}" value="${(manifest.gratitude && manifest.gratitude[i]) || ''}" 
+                    onchange="saveGratitude()" 
+                    class="mt-0.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" 
+                    placeholder="Something I’m grateful for..." />
+                </div>
+              `).join('')}
+            </div>
+            <button onclick="saveGratitude()" class="mt-4 w-full bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-xl text-sm font-medium">Save Gratitude</button>
+          </div>`;
+      }
+
+      // Daily Affirmations — one per day
+      if (manifest.enabledMethods.affirmations) {
+        const allAffs = [
+          "It's time to step it up a notch and advance in my career.",
+          "If it's success I want, then I earn it by working hard.",
+          "There are some new opportunities on the way.",
+          "My dream career is mine alone to create.",
+          "Career success is mine to bring about.",
+          "The more I search, the closer I am to my dream job.",
+          "Bring on the new opportunities; I'm all for them!",
+          "Interviews don't scare me; I am calm and collected.",
+          "I bring a lot to the table when it comes to my job.",
+          "My work is excellent, and others know it.",
+          "I have no shortage of great things in my job right now.",
+          "My colleagues enjoy working alongside me.",
+          "Even though there are problems, I can turn them into learning experiences.",
+          "It's not wrong to ask for help, so I do it more.",
+          "I help my colleagues out when they need it.",
+          "This job is teaching me plenty of things, and I'm grateful for it.",
+          "The more I learn, the more successful I become.",
+          "There are plenty of possibilities I will discover in my career.",
+          "The first day is only the beginning of wonderful opportunities.",
+          "I'm not scared to face my fears at work.",
+          "I have all the skills my job needs.",
+          "Even if I don't have all the knowledge, I have the heart to learn more.",
+          "I need time to grow, and that's completely fine.",
+          "I know how to use my time and skills; I keep it up!",
+          "My career is a long journey, and I'm forging my own path.",
+          "I have a vision for my job, and I'm striving for it.",
+          "Anything holding me back won't work — I resist with all my might.",
+          "If things don't work out, I know change must come. It may hurt, but I push forward.",
+          "Long-term goals are better than short-term achievements, and I can play the patient game.",
+          "I'm fantastic to work with, and people want to work with me.",
+          "My career ought to fulfill me, not the other way around.",
+          "My perfect job is coming. I can feel it.",
+          "No matter what is happening in the workplace, I can endure it.",
+          "People can try to break me, but I won't go down without a fight.",
+          "The more I learn, the happier I am in my job.",
+          "Bring it on — challenges are fuel for my growth!",
+          "I know looking for a job is difficult, but it won't stop me from trying again.",
+          "This is my dream job, and I make every second of it fun!",
+          "I can balance work and family life.",
+          "My boss values me, and I'm happy to work for them.",
+          "My work ethic is powerful and valid.",
+          "I'm more than happy to lead others to success.",
+          "I satisfy all my customers with excellence.",
+          "No mountain at work is too high for me to climb.",
+          "My organization values me for who I am.",
+          "Failure won't break me when it comes to my job.",
+          "My job is rewarding beyond earning my salary."
+        ];
+        // Pick one affirmation based on day of year (same one all day)
+        const now = new Date();
+        const start = new Date(now.getFullYear(), 0, 0);
+        const dayOfYear = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+        const todayAff = allAffs[dayOfYear % allAffs.length];
+        const affNumber = (dayOfYear % allAffs.length) + 1;
+
+        html += `
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div class="flex items-center gap-3 mb-5">
+              <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center text-lg">💬</div>
+              <div>
+                <h3 class="font-semibold text-slate-900">Today's Affirmation</h3>
+                <p class="text-sm text-slate-500">One focus for today · #${affNumber} of ${allAffs.length}</p>
+              </div>
+            </div>
+            <div class="bg-gradient-to-br from-sky-50 to-primary-50 rounded-2xl p-6 border border-sky-100">
+              <p class="text-lg sm:text-xl font-medium text-slate-800 leading-relaxed text-center">
+                “${todayAff}”
+              </p>
+            </div>
+            <p class="text-xs text-slate-400 text-center mt-4">A new affirmation appears every day</p>
+          </div>`;
+      }
+
+      // Scripting
+      if (manifest.enabledMethods.scripting) {
+        html += `
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center text-lg">📜</div>
+              <div>
+                <h3 class="font-semibold text-slate-900">Scripting</h3>
+                <p class="text-sm text-slate-500">Write your ideal outcome as if it already happened</p>
+              </div>
+            </div>
+            <textarea id="scripting-input" rows="6" 
+              class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
+              placeholder="Today I received an amazing offer from... I felt so grateful and excited...">${manifest.scriptingText || ''}</textarea>
+            <button onclick="saveScripting()" class="mt-3 w-full bg-violet-600 hover:bg-violet-700 text-white py-2.5 rounded-xl text-sm font-medium">Save Script</button>
+          </div>`;
+      }
+
+      // LoA Tips
+      if (manifest.enabledMethods.tips) {
+        html += `
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <h3 class="font-semibold text-slate-900 mb-4">Law of Attraction Tips</h3>
+            <ul class="space-y-3 text-sm text-slate-600">
+              <li class="flex gap-3"><span class="text-accent-500 font-bold">1.</span><span><strong>Present tense only</strong> — Write as if it has already happened (“I am…” not “I will…”).</span></li>
+              <li class="flex gap-3"><span class="text-accent-500 font-bold">2.</span><span><strong>Feel first</strong> — Emotion is the real fuel. Writing without feeling is just ink.</span></li>
+              <li class="flex gap-3"><span class="text-accent-500 font-bold">3.</span><span><strong>Detach after applying</strong> — Apply, then release. Obsessing blocks the flow.</span></li>
+              <li class="flex gap-3"><span class="text-accent-500 font-bold">4.</span><span><strong>Gratitude daily</strong> — End each day with 3 things you’re grateful for (even small ones).</span></li>
+            </ul>
+          </div>`;
+      }
+
+      if (!html) {
+        html = `
+          <div class="lg:col-span-2 bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
+            <p class="text-slate-500 text-lg">No methods selected</p>
+            <p class="text-sm text-slate-400 mt-2">Toggle on the methods you want to practice above.</p>
+          </div>`;
+      }
+
+      container.innerHTML = html;
+
+      // Re-populate dynamic values after render
+      if (manifest.enabledMethods.method369) {
+        const aff = document.getElementById('affirmation-input');
+        if (aff) aff.value = manifest.affirmation || '';
+        const m = document.getElementById('m-progress');
+        const a = document.getElementById('a-progress');
+        const n = document.getElementById('n-progress');
+        const s = document.getElementById('streak');
+        if (m) m.textContent = `${manifest.morning} / 3`;
+        if (a) a.textContent = `${manifest.afternoon} / 6`;
+        if (n) n.textContent = `${manifest.night} / 9`;
+        if (s) s.textContent = manifest.streak;
+      }
+    }
+
+    function renderManifest() {
+      renderMethodToggles();
+      renderManifestSections();
+    }
+
+    function saveAffirmation() {
+      const el = document.getElementById('affirmation-input');
+      if (el) {
+        manifest.affirmation = el.value.trim() || manifest.affirmation;
+        saveManifest();
+        renderDashboard();
+        alert('Affirmation saved ✨');
+      }
+    }
+
+    function tick369(session) {
+      const limits = { morning: 3, afternoon: 6, night: 9 };
+      if (manifest[session] < limits[session]) {
+        manifest[session]++;
+        saveManifest();
+        renderManifest();
+        renderDashboard();
+      }
+    }
+
+    function resetSession(session) {
+      manifest[session] = 0;
+      saveManifest();
+      renderManifest();
+      renderDashboard();
+    }
+
+    function completeDay() {
+      if (manifest.morning >= 3 && manifest.afternoon >= 6 && manifest.night >= 9) {
+        manifest.streak++;
+        manifest.day++;
+        manifest.morning = 0;
+        manifest.afternoon = 0;
+        manifest.night = 0;
+        saveManifest();
+        renderManifest();
+        renderDashboard();
+        alert(`Day ${manifest.day - 1} complete! Streak: ${manifest.streak} days 🔥`);
+      } else {
+        alert('Complete all three sessions (3 + 6 + 9) before marking the day complete.');
+      }
+    }
+
+    function saveGratitude() {
+      manifest.gratitude = [0,1,2].map(i => {
+        const el = document.getElementById(`gratitude-${i}`);
+        return el ? el.value.trim() : '';
+      });
+      saveManifest();
+      renderDashboard();
+      alert('Gratitude saved 🙏');
+    }
+
+    function saveScripting() {
+      const el = document.getElementById('scripting-input');
+      if (el) {
+        manifest.scriptingText = el.value;
+        saveManifest();
+        alert('Script saved 📜');
+      }
+    }
+
+    // ========== AMBIENT SOUNDS ==========
+    const SOUND_URLS = {
+      water: 'https://raw.githubusercontent.com/bradtraversy/ambient-sound-mixer/main/audio/rain.mp3',
+      fire: 'https://raw.githubusercontent.com/bradtraversy/ambient-sound-mixer/main/audio/fireplace.mp3',
+      air: 'https://raw.githubusercontent.com/bradtraversy/ambient-sound-mixer/main/audio/wind.mp3',
+      birds: 'https://raw.githubusercontent.com/bradtraversy/ambient-sound-mixer/main/audio/birds.mp3',
+      mindful: 'https://raw.githubusercontent.com/bradtraversy/ambient-sound-mixer/main/audio/ocean.mp3'
+    };
+    window.selectedSound = window.selectedSound || 'water';
+    let ambientAudio = null;
+
+    function selectSound(id) {
+      window.selectedSound = id;
+      // Update button styles without full re-render
+      document.querySelectorAll('.sound-btn').forEach(btn => {
+        const isActive = btn.dataset.sound === id;
+        btn.className = `sound-btn px-3 py-1.5 rounded-lg text-xs font-medium border transition ${isActive ? 'bg-primary-100 border-primary-300 text-primary-800' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`;
+      });
+      // If timer is running, switch sound immediately
+      if (timerInterval && id !== 'none') {
+        playAmbient(id);
+      } else if (id === 'none') {
+        stopAmbient();
+      }
+    }
+
+    function playAmbient(id) {
+      stopAmbient();
+      if (!id || id === 'none' || !SOUND_URLS[id]) return;
+      ambientAudio = new Audio(SOUND_URLS[id]);
+      ambientAudio.loop = true;
+      ambientAudio.volume = 0.55;
+      ambientAudio.play().catch(err => {
+        console.warn('Audio play blocked or failed:', err);
+      });
+    }
+
+    function stopAmbient() {
+      if (ambientAudio) {
+        ambientAudio.pause();
+        ambientAudio.currentTime = 0;
+        ambientAudio = null;
+      }
+    }
+
+    // Timer
+    let timerInterval = null;
+    let remaining = 0;
+    function startTimer(minutes) {
+      stopTimer();
+      remaining = minutes * 60;
+      updateTimerDisplay();
+      // Start ambient sound
+      if (window.selectedSound && window.selectedSound !== 'none') {
+        playAmbient(window.selectedSound);
+      }
+      timerInterval = setInterval(() => {
+        remaining--;
+        updateTimerDisplay();
+        if (remaining <= 0) {
+          stopTimer();
+          alert('Visualization complete. Well done 🌟');
+        }
+      }, 1000);
+    }
+    function stopTimer() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      stopAmbient();
+    }
+    function updateTimerDisplay() {
+      const el = document.getElementById('timer-display');
+      if (!el) return;
+      const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+      const s = (remaining % 60).toString().padStart(2, '0');
+      el.textContent = `${m}:${s}`;
+    }
+
+    // Init
+    showView('dashboard');
+  </script>
+</body>
+</html>
